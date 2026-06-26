@@ -12,38 +12,33 @@ def precomputar_caracter_malo(patron, m):
         tabla_cm[patron[j]] = j
     return tabla_cm
 
+def preprocess_strong_suffix(shift, bpos, patron, m):
+    i = m
+    j = m + 1
+    bpos[i] = j
 
-def calcular_sufijos(patron, m):
-    """Calcula el arreglo de sufijos para la regla del sufijo bueno."""
-    sufijos = [0] * m
-    sufijos[m - 1] = m
-    g = m - 1
-    f = 0
-    for i in range(m - 2, -1, -1):
-        if i > g and sufijos[i + m - 1 - f] < i - g:
-            sufijos[i] = sufijos[i + m - 1 - f]
-        else:
-            if i < g:
-                g = i
-            f = i
-            while g >= 0 and patron[g] == patron[g + m - 1 - f]:
-                g -= 1
-            sufijos[i] = f - g
-    return sufijos
+    while i > 0:
+        while j <= m and patron[i - 1] != patron[j - 1]:
+            if shift[j] == 0:
+                shift[j] = j - i
+
+            j = bpos[j]
+
+        i -= 1
+        j -= 1
+        bpos[i] = j
 
 
-def precomputar_sufijo_bueno(patron, m):
-    """Tabla de sufijo bueno a partir del arreglo de sufijos."""
-    tabla_sg = [m] * (m + 1)
-    sufijos = calcular_sufijos(patron, m)
-    for i in range(m - 1, -1, -1):
-        if sufijos[i] == i + 1:
-            for j in range(m - 1 - i):
-                if tabla_sg[j] == m:
-                    tabla_sg[j] = m - 1 - i
-    for i in range(m - 1):
-        tabla_sg[m - 1 - sufijos[i]] = m - 1 - i
-    return tabla_sg
+def preprocess_case2(shift, bpos, m):
+    j = bpos[0]
+
+    for i in range(m + 1):
+
+        if shift[i] == 0:
+            shift[i] = j
+
+        if i == j:
+            j = bpos[j]
 
 
 def boyer_moore(texto, patron):
@@ -57,21 +52,28 @@ def boyer_moore(texto, patron):
         return []
 
     tabla_cm = precomputar_caracter_malo(patron, m)
-    tabla_sg = precomputar_sufijo_bueno(patron, m)
+    
+    shift = [0] * (m + 1)
+    bpos = [0] * (m + 1)
+
+    preprocess_strong_suffix(shift, bpos, patron, m)
+    preprocess_case2(shift, bpos, m)
 
     ocurrencias = []
     s = 0
+
     while s <= n - m:
         j = m - 1
         while j >= 0 and patron[j] == texto[s + j]:
             j -= 1
         if j < 0:
             ocurrencias.append(s)
-            s += tabla_sg[0]
+            s += shift[0]
         else:
             cm = tabla_cm.get(texto[s + j], -1)
+
             desp_cm = max(1, j - cm)
-            #desp_sg = tabla_sg[j + 1]
-            #s += max(desp_cm, desp_sg)
-            s += desp_cm
+            desp_sg = shift[j + 1]
+
+            s += max(desp_cm, desp_sg)
     return ocurrencias
